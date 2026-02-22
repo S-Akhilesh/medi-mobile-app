@@ -202,3 +202,41 @@ export function useAllAppointments(userId: string | null | undefined) {
 
   return { appointments, loading, error, refetch: fetchAppointments };
 }
+
+/** Patient derived from appointments (unique by phone; name/email from latest). */
+export interface Patient {
+  patientName: string;
+  patientPhone: string;
+  patientEmail?: string;
+  appointmentCount: number;
+}
+
+/** Fetch unique patients for the given doctor from their appointments. */
+export function usePatients(userId: string | null | undefined) {
+  const { appointments, loading, error, refetch } = useAllAppointments(userId);
+
+  const patients = useMemo((): Patient[] => {
+    const byKey = new Map<string, Patient>();
+    for (const apt of appointments) {
+      const key = apt.patientPhone?.trim() || apt.patientName?.trim() || apt.id || apt.slotId || '';
+      if (!key) continue;
+      const existing = byKey.get(key);
+      if (existing) {
+        existing.appointmentCount += 1;
+        if (apt.patientEmail?.trim()) existing.patientEmail = apt.patientEmail.trim();
+      } else {
+        byKey.set(key, {
+          patientName: apt.patientName?.trim() ?? '',
+          patientPhone: apt.patientPhone?.trim() ?? '',
+          patientEmail: apt.patientEmail?.trim() || undefined,
+          appointmentCount: 1,
+        });
+      }
+    }
+    return [...byKey.values()].sort((a, b) =>
+      a.patientName.localeCompare(b.patientName, undefined, { sensitivity: 'base' })
+    );
+  }, [appointments]);
+
+  return { patients, loading, error, refetch };
+}

@@ -20,6 +20,7 @@ const MAPPING = {
   'chevron.right': 'chevron-right',
   'square.grid.2x2.fill': 'dashboard',
   'calendar': 'event',
+  'person.2.fill': 'people',
   'gearshape.fill': 'settings',
 } as IconMapping;
 

@@ -40,6 +40,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="patients"
+        options={{
+          title: 'Patients',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.2.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="create-appointment"
         options={{
           href: null,
