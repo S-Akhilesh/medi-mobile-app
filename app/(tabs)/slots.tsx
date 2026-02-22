@@ -136,8 +136,12 @@ export default function SlotsScreen() {
           </View>
         ) : (
           <View style={styles.list}>
-            {slotsByDate.map(({ date, slots: daySlots }) => (
-              <Collapsible key={date} title={formatDateFull(date)}>
+            {slotsByDate.map(({ date, slots: daySlots }, index) => (
+              <Collapsible
+                key={date}
+                title={formatDateFull(date)}
+                defaultOpen={index === 0}
+              >
                 <View style={styles.slotList}>
                   {daySlots.map((slot) => {
                     const isAvailable = slot.available !== false;
