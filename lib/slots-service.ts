@@ -41,9 +41,11 @@ function fromDoc(docSnap: { id: string; data: () => Record<string, unknown> }): 
   return {
     id: docSnap.id,
     doctorId: (data.doctorId as string) ?? '',
+    doctorName: data.doctorName as string | undefined,
     date: (data.date as string) ?? '',
     startTime: (data.startTime as string) ?? '',
     endTime: (data.endTime as string) ?? '',
+    duration: data.duration as number | undefined,
     available,
   };
 }
@@ -52,9 +54,11 @@ function fromDoc(docSnap: { id: string; data: () => Record<string, unknown> }): 
 function toFirestore(slot: Partial<Slot>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (slot.doctorId !== undefined) out.doctorId = slot.doctorId;
+  if (slot.doctorName !== undefined) out.doctorName = slot.doctorName;
   if (slot.date !== undefined) out.date = slot.date;
   if (slot.startTime !== undefined) out.startTime = slot.startTime;
   if (slot.endTime !== undefined) out.endTime = slot.endTime;
+  if (slot.duration !== undefined) out.duration = slot.duration;
   if (slot.available !== undefined) out.isAvailable = slot.available;
   return out;
 }

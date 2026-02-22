@@ -51,9 +51,12 @@ export interface MonthlyDataItem {
 export interface Slot {
   id: string;
   doctorId: string;
+  doctorName?: string;
   date: string; // YYYY-MM-DD
   startTime: string; // HH:MM
   endTime: string; // HH:MM
+  /** Duration in minutes. */
+  duration?: number;
   /** If false, slot is unavailable for booking. Default true when missing. */
   available?: boolean;
 }

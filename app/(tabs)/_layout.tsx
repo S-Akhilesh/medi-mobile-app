@@ -54,6 +54,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="create-slot"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="create-appointment"
         options={{
           href: null,
