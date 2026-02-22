@@ -21,6 +21,7 @@ const MAPPING = {
   'square.grid.2x2.fill': 'dashboard',
   'calendar': 'event',
   'person.2.fill': 'people',
+  'clock.fill': 'schedule',
   'gearshape.fill': 'settings',
 } as IconMapping;
 

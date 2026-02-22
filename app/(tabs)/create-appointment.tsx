@@ -128,6 +128,7 @@ export default function CreateAppointmentScreen() {
   const availableSlots = useMemo(() => {
     if (!date || date.length !== 10) return [];
     return slotsForDate.filter((slot) => {
+      if (slot.available === false) return false;
       const taken = existingOnDate.some((apt) => slotOverlapsAppointment(slot, apt));
       if (taken) return false;
       if (isSlotInPast(date, slot.startTime)) return false;

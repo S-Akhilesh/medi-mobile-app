@@ -46,12 +46,13 @@ The app uses `lib/appointments-service.ts` for all appointment CRUD; the overvie
 
 Used by the **Create appointment** screen to show available time slots per doctor and date. Only slots that do not overlap existing (non-cancelled) appointments are shown as available.
 
-| Field      | Type   | Description                    |
+| Field      | Type    | Description                    |
 |------------|--------|--------------------------------|
 | `doctorId` | string | **Required.** Doctor’s Firebase Auth UID. |
 | `date`     | string | **Required.** `YYYY-MM-DD`     |
 | `startTime`| string | **Required.** e.g. `09:00` (24h) |
 | `endTime`  | string | **Required.** e.g. `09:30` (24h) |
+| `available` / `isAvailable` | boolean | Optional. If `false`, slot is unavailable for booking (Slots screen can toggle). The service writes `isAvailable`. Default `true` when missing. |
 
 **Index:** A single-field index on `doctorId` is enough (Firestore may create it automatically). The app does not use `orderBy` in the query; it sorts in memory.
 

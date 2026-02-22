@@ -54,4 +54,6 @@ export interface Slot {
   date: string; // YYYY-MM-DD
   startTime: string; // HH:MM
   endTime: string; // HH:MM
+  /** If false, slot is unavailable for booking. Default true when missing. */
+  available?: boolean;
 }
