@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +30,16 @@ const STATUS_PILL_COLORS: Record<
   cancelled: { bg: '#ef4444', text: '#ef4444' },
   'no-show': { bg: '#f59e0b', text: '#f59e0b' },
 };
+
+type StatusFilter = AppointmentStatus | 'all';
+
+const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
 
 function formatDateFull(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
@@ -173,6 +183,12 @@ export default function AppointmentsScreen() {
     user?.uid,
   );
   const [actionLoading, setActionLoading] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+  const filteredAppointments = useMemo(() => {
+    if (statusFilter === 'all') return appointments;
+    return appointments.filter((apt) => apt.status === statusFilter);
+  }, [appointments, statusFilter]);
 
   const handleConfirm = async (apt: Appointment) => {
     if (!apt.id) return;
@@ -234,6 +250,46 @@ export default function AppointmentsScreen() {
           </View>
         ) : null}
 
+        {!loading && appointments.length > 0 ? (
+          <>
+            <ThemedText style={[styles.filterLabel, { color: colors.textSecondary }]}>
+              Status
+            </ThemedText>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterRow}
+              style={styles.filterScroll}
+            >
+              {STATUS_FILTER_OPTIONS.map((opt) => {
+                const isActive = statusFilter === opt.value;
+                return (
+                  <Pressable
+                    key={opt.value}
+                    onPress={() => setStatusFilter(opt.value)}
+                    style={[
+                      styles.filterChip,
+                      {
+                        borderColor: colors.cardBorder,
+                        backgroundColor: isActive ? colors.tint : colors.cardBackground,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.filterChipText,
+                        { color: isActive ? '#fff' : colors.text },
+                      ]}
+                    >
+                      {opt.label}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </>
+        ) : null}
+
         {loading && appointments.length === 0 ? (
           <View style={styles.loading}>
             <ActivityIndicator size='large' color={colors.tint} />
@@ -251,9 +307,17 @@ export default function AppointmentsScreen() {
               No appointments found
             </ThemedText>
           </View>
+        ) : filteredAppointments.length === 0 ? (
+          <View style={styles.empty}>
+            <ThemedText
+              style={[styles.emptyText, { color: colors.textSecondary }]}
+            >
+              No appointments match the selected filters
+            </ThemedText>
+          </View>
         ) : (
           <View style={styles.list}>
-            {appointments.map((apt, index) => (
+            {filteredAppointments.map((apt, index) => (
               <AppointmentCard
                 key={apt.id ?? apt.slotId ?? index.toString()}
                 apt={apt}
@@ -279,6 +343,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 56,
     paddingBottom: 32,
+  },
+  filterLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  filterScroll: {
+    marginHorizontal: -20,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 4,
+    paddingHorizontal: 20,
+  },
+  filterChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  filterChipText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   errorBanner: {
     padding: 14,
