@@ -1,5 +1,6 @@
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -18,22 +19,74 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { appointmentsService } from '@/lib/appointments-service';
+import { slotsService } from '@/lib/slots-service';
 
-import type { AppointmentStatus } from '@/types/appointment';
+import type { Slot } from '@/types/appointment';
 
-const STATUS_OPTIONS: { value: AppointmentStatus; label: string }[] = [
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'confirmed', label: 'Confirmed' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-];
-
-function isValidDate(s: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s + 'T12:00:00'));
+function formatDateForInput(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
-function isValidTime(s: string): boolean {
-  return /^([01]?\d|2[0-3]):[0-5]\d$/.test(s);
+function timeToMinutes(hour: number, minute: number): number {
+  return hour * 60 + minute;
+}
+
+function slotOverlapsAppointment(
+  slot: { startTime: string; endTime: string },
+  apt: { startTime: string; endTime: string }
+): boolean {
+  const [sH, sM] = slot.startTime.split(':').map(Number);
+  const [eH, eM] = slot.endTime.split(':').map(Number);
+  const [aSH, aSM] = apt.startTime.split(':').map(Number);
+  const [aEH, aEM] = apt.endTime.split(':').map(Number);
+  const slotStart = timeToMinutes(sH, sM);
+  const slotEnd = timeToMinutes(eH, eM);
+  const aptStart = timeToMinutes(aSH, aSM);
+  const aptEnd = timeToMinutes(aEH, aEM);
+  return slotStart < aptEnd && aptStart < slotEnd;
+}
+
+function isSlotInPast(dateStr: string, startTime: string): boolean {
+  const today = formatDateForInput(new Date());
+  if (dateStr !== today) return false;
+  const [h, m] = startTime.split(':').map(Number);
+  const slotMins = timeToMinutes(h, m);
+  const now = new Date();
+  const nowMins = timeToMinutes(now.getHours(), now.getMinutes());
+  return slotMins <= nowMins;
+}
+
+const DEFAULT_SLOT_DURATION = 30;
+const DEFAULT_WORK_START = { hour: 9, minute: 0 };
+const DEFAULT_WORK_END = { hour: 17, minute: 0 };
+
+function formatTime(h: number, m: number): string {
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+/** Fallback slots when Firebase has none: 9:00–17:00, 30 min, for the given date. */
+function getDefaultSlotsForDate(date: string, doctorId: string): Slot[] {
+  const slots: Slot[] = [];
+  const startMins = timeToMinutes(DEFAULT_WORK_START.hour, DEFAULT_WORK_START.minute);
+  const endMins = timeToMinutes(DEFAULT_WORK_END.hour, DEFAULT_WORK_END.minute);
+  for (let m = startMins; m + DEFAULT_SLOT_DURATION <= endMins; m += DEFAULT_SLOT_DURATION) {
+    const sh = Math.floor(m / 60);
+    const sm = m % 60;
+    const em = m + DEFAULT_SLOT_DURATION;
+    const eh = Math.floor(em / 60);
+    const eMin = em % 60;
+    slots.push({
+      id: `default-${date}-${formatTime(sh, sm)}`,
+      doctorId,
+      date,
+      startTime: formatTime(sh, sm),
+      endTime: formatTime(eh, eMin),
+    });
+  }
+  return slots;
 }
 
 export default function CreateAppointmentScreen() {
@@ -45,13 +98,103 @@ export default function CreateAppointmentScreen() {
   const [patientPhone, setPatientPhone] = useState('');
   const [patientEmail, setPatientEmail] = useState('');
   const [date, setDate] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerValue, setDatePickerValue] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
-  const [status, setStatus] = useState<AppointmentStatus>('scheduled');
   const [notes, setNotes] = useState('');
+  const [slotsLoading, setSlotsLoading] = useState(true);
+  const [allSlots, setAllSlots] = useState<Slot[]>([]);
+  const [existingOnDate, setExistingOnDate] = useState<{ startTime: string; endTime: string }[]>([]);
+  const [appointmentsLoading, setAppointmentsLoading] = useState(false);
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
 
   const doctorId = user?.uid ?? '';
   const doctorName = user?.displayName ?? user?.email ?? 'Doctor';
+
+  // Slots for selected date: from Firebase, or fallback to default (9:00–17:00, 30 min)
+  const slotsForDate = useMemo(() => {
+    if (!date || date.length !== 10) return [];
+    const fromFirebase = allSlots.filter((slot) => slot.date === date);
+    if (fromFirebase.length > 0) return fromFirebase;
+    return getDefaultSlotsForDate(date, doctorId);
+  }, [date, allSlots, doctorId]);
+
+  // Available = slots for this date that aren't taken and aren't in the past
+  const availableSlots = useMemo(() => {
+    if (!date || date.length !== 10) return [];
+    return slotsForDate.filter((slot) => {
+      const taken = existingOnDate.some((apt) => slotOverlapsAppointment(slot, apt));
+      if (taken) return false;
+      if (isSlotInPast(date, slot.startTime)) return false;
+      return true;
+    });
+  }, [date, slotsForDate, existingOnDate]);
+
+  // Fetch all slots once when page opens
+  useEffect(() => {
+    if (!doctorId) {
+      setAllSlots([]);
+      setSlotsLoading(false);
+      return;
+    }
+    setSlotsLoading(true);
+    slotsService
+      .getSlotsByDoctor(doctorId)
+      .then(setAllSlots)
+      .catch(() => setAllSlots([]))
+      .finally(() => setSlotsLoading(false));
+  }, [doctorId]);
+
+  // When date is selected, fetch appointments for that date only (to know which slots are taken)
+  useEffect(() => {
+    if (!date || date.length !== 10 || !doctorId) {
+      setExistingOnDate([]);
+      setAppointmentsLoading(false);
+      return;
+    }
+    setAppointmentsLoading(true);
+    appointmentsService
+      .getAppointmentsByDoctor(doctorId)
+      .then((all) => {
+        const onDate = all
+          .filter((a) => a.date === date)
+          .filter((a) => a.status !== 'cancelled')
+          .map((a) => ({ startTime: a.startTime, endTime: a.endTime }));
+        setExistingOnDate(onDate);
+      })
+      .catch(() => setExistingOnDate([]))
+      .finally(() => setAppointmentsLoading(false));
+  }, [date, doctorId]);
+
+  const onDatePickerChange = useCallback(
+    (event: { type: string }, selectedDate?: Date) => {
+      if (Platform.OS === 'android') {
+        setShowDatePicker(false);
+        if (event.type === 'dismissed') return;
+      }
+      if (selectedDate) {
+        const next = new Date(selectedDate);
+        next.setHours(0, 0, 0, 0);
+        setDatePickerValue(next);
+        setDate(formatDateForInput(next));
+        setStartTime('');
+        setEndTime('');
+        setSelectedSlotId(null);
+      }
+    },
+    []
+  );
+
+  const selectSlot = useCallback((slot: Slot) => {
+    setStartTime(slot.startTime);
+    setEndTime(slot.endTime);
+    setSelectedSlotId(slot.id);
+  }, []);
 
   async function handleSubmit() {
     const name = patientName.trim();
@@ -65,34 +208,18 @@ export default function CreateAppointmentScreen() {
       return;
     }
     if (!date.trim()) {
-      Alert.alert('Required', 'Please enter appointment date (YYYY-MM-DD).');
+      Alert.alert('Required', 'Please select a date.');
       return;
     }
-    if (!isValidDate(date.trim())) {
-      Alert.alert('Invalid date', 'Use format YYYY-MM-DD (e.g. 2025-03-15).');
-      return;
-    }
-    if (!startTime.trim()) {
-      Alert.alert('Required', 'Please enter start time (HH:MM).');
-      return;
-    }
-    if (!isValidTime(startTime.trim())) {
-      Alert.alert('Invalid time', 'Use 24-hour format HH:MM (e.g. 09:00).');
-      return;
-    }
-    if (!endTime.trim()) {
-      Alert.alert('Required', 'Please enter end time (HH:MM).');
-      return;
-    }
-    if (!isValidTime(endTime.trim())) {
-      Alert.alert('Invalid time', 'Use 24-hour format HH:MM (e.g. 09:30).');
+    if (!startTime.trim() || !endTime.trim()) {
+      Alert.alert('Required', 'Please select an available time slot.');
       return;
     }
 
     setSubmitting(true);
     try {
       await appointmentsService.createAppointment({
-        slotId: `slot-${Date.now()}`,
+        slotId: selectedSlotId ?? `slot-${Date.now()}`,
         patientName: name,
         patientPhone: phone,
         patientEmail: patientEmail.trim() || undefined,
@@ -101,7 +228,7 @@ export default function CreateAppointmentScreen() {
         endTime: endTime.trim(),
         doctorId,
         doctorName,
-        status,
+        status: 'scheduled',
         notes: notes.trim() || undefined,
       });
       Alert.alert('Success', 'Appointment created.', [
@@ -121,6 +248,15 @@ export default function CreateAppointmentScreen() {
     styles.input,
     { color: colors.text, borderColor: colors.cardBorder, backgroundColor: colors.cardBackground },
   ];
+
+  const displayDateLabel = date
+    ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : 'Tap to select date';
 
   return (
     <ThemedView style={styles.container}>
@@ -177,64 +313,95 @@ export default function CreateAppointmentScreen() {
           <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
             Date *
           </ThemedText>
-          <TextInput
-            style={inputStyle}
-            placeholder="YYYY-MM-DD (e.g. 2025-03-15)"
-            placeholderTextColor={colors.textSecondary}
-            value={date}
-            onChangeText={setDate}
-            editable={!submitting}
-          />
+          <Pressable
+            onPress={() => setShowDatePicker(true)}
+            disabled={submitting}
+            style={[inputStyle, styles.dateTouchable]}
+          >
+            <ThemedText style={{ color: date ? colors.text : colors.textSecondary }}>
+              {displayDateLabel}
+            </ThemedText>
+          </Pressable>
 
-          <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
-            Start time *
-          </ThemedText>
-          <TextInput
-            style={inputStyle}
-            placeholder="HH:MM 24h (e.g. 09:00)"
-            placeholderTextColor={colors.textSecondary}
-            value={startTime}
-            onChangeText={setStartTime}
-            editable={!submitting}
-          />
-
-          <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
-            End time *
-          </ThemedText>
-          <TextInput
-            style={inputStyle}
-            placeholder="HH:MM 24h (e.g. 09:30)"
-            placeholderTextColor={colors.textSecondary}
-            value={endTime}
-            onChangeText={setEndTime}
-            editable={!submitting}
-          />
-
-          <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
-            Status
-          </ThemedText>
-          <View style={styles.statusRow}>
-            {STATUS_OPTIONS.map((opt) => (
+          {showDatePicker && (
+            <DateTimePicker
+              value={datePickerValue}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              minimumDate={new Date()}
+              onChange={onDatePickerChange}
+            />
+          )}
+          {Platform.OS === 'ios' && showDatePicker && (
+            <View style={styles.iosDatePickerActions}>
               <Pressable
-                key={opt.value}
-                onPress={() => setStatus(opt.value)}
-                disabled={submitting}
-                style={[
-                  styles.statusChip,
-                  {
-                    borderColor: colors.cardBorder,
-                    backgroundColor: status === opt.value ? colors.tint : colors.cardBackground,
-                  },
-                ]}
+                onPress={() => {
+                  setDate(formatDateForInput(datePickerValue));
+                  setStartTime('');
+                  setEndTime('');
+                  setSelectedSlotId(null);
+                  setShowDatePicker(false);
+                }}
+                style={styles.iosDatePickerBtn}
               >
-                <ThemedText
-                  style={[styles.statusChipText, { color: status === opt.value ? '#fff' : colors.text }]}
-                >
-                  {opt.label}
+                <ThemedText style={[styles.iosDatePickerBtnText, { color: colors.tint }]}>
+                  Done
                 </ThemedText>
               </Pressable>
-            ))}
-          </View>
+            </View>
+          )}
+
+          {date ? (
+            <>
+              <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
+                Available time slots *
+              </ThemedText>
+              {slotsLoading ? (
+                <ThemedText style={[styles.slotMessage, { color: colors.textSecondary }]}>
+                  Loading slots…
+                </ThemedText>
+              ) : appointmentsLoading ? (
+                <ThemedText style={[styles.slotMessage, { color: colors.textSecondary }]}>
+                  Checking availability…
+                </ThemedText>
+              ) : availableSlots.length === 0 ? (
+                <View style={[styles.noSlotsBox, { backgroundColor: colors.cardBackground, borderColor: colors.cardBorder }]}>
+                  <ThemedText style={[styles.noSlotsText, { color: colors.textSecondary }]}>
+                    {slotsForDate.length === 0
+                      ? 'No slots defined for this date. Add slots in Firebase or choose another day.'
+                      : 'All slots are booked for this date. Please choose another day.'}
+                  </ThemedText>
+                </View>
+              ) : (
+                <View style={styles.slotGrid}>
+                  {availableSlots.map((slot) => {
+                    const selected = startTime === slot.startTime && endTime === slot.endTime;
+                    const label = `${slot.startTime} – ${slot.endTime}`;
+                    return (
+                      <Pressable
+                        key={slot.id}
+                        onPress={() => selectSlot(slot)}
+                        disabled={submitting}
+                        style={[
+                          styles.slotChip,
+                          {
+                            borderColor: colors.cardBorder,
+                            backgroundColor: selected ? colors.tint : colors.cardBackground,
+                          },
+                        ]}
+                      >
+                        <ThemedText
+                          style={[styles.slotChipText, { color: selected ? '#fff' : colors.text }]}
+                        >
+                          {label}
+                        </ThemedText>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+            </>
+          ) : null}
 
           <ThemedText style={[styles.label, { color: colors.textSecondary }]}>
             Notes (optional)
@@ -306,25 +473,55 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
   },
+  dateTouchable: {
+    justifyContent: 'center',
+  },
+  iosDatePickerActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 8,
+  },
+  iosDatePickerBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  iosDatePickerBtnText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  slotMessage: {
+    fontSize: 15,
+    marginTop: 4,
+  },
+  noSlotsBox: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  noSlotsText: {
+    fontSize: 15,
+    textAlign: 'center',
+  },
+  slotGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 4,
+  },
+  slotChip: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  slotChipText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
   notesInput: {
     minHeight: 80,
     textAlignVertical: 'top',
-  },
-  statusRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
-  },
-  statusChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  statusChipText: {
-    fontSize: 14,
-    fontWeight: '500',
   },
   submitBtn: {
     paddingVertical: 16,

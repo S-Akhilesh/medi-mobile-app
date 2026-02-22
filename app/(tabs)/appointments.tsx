@@ -115,10 +115,6 @@ function AppointmentCard({
           </ThemedText>
         </View>
       ) : null}
-      <View style={styles.detailRow}>
-        <ThemedText style={styles.label}>Doctor</ThemedText>
-        <ThemedText style={styles.value}>{apt.doctorName}</ThemedText>
-      </View>
       {apt.notes?.trim() ? (
         <View
           style={[styles.notesWrap, { backgroundColor: colors.cardBackground }]}

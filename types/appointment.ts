@@ -46,3 +46,12 @@ export interface MonthlyDataItem {
   week: string; // "Week 1" .. "Week 4"
   appointments: number;
 }
+
+/** Slot from Firestore `slots` collection (doctor availability). */
+export interface Slot {
+  id: string;
+  doctorId: string;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:MM
+  endTime: string; // HH:MM
+}

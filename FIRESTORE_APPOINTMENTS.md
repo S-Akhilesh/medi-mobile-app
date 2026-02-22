@@ -39,3 +39,20 @@ Create a composite index in Firebase Console → Firestore → Indexes:
 This index is required for `getAppointmentsByDoctor` (used by the overview).
 
 The app uses `lib/appointments-service.ts` for all appointment CRUD; the overview hook calls `getAppointmentsByDoctor(doctorId)` and filters to the last 28 days in memory.
+
+---
+
+## Collection: `slots`
+
+Used by the **Create appointment** screen to show available time slots per doctor and date. Only slots that do not overlap existing (non-cancelled) appointments are shown as available.
+
+| Field      | Type   | Description                    |
+|------------|--------|--------------------------------|
+| `doctorId` | string | **Required.** Doctor’s Firebase Auth UID. |
+| `date`     | string | **Required.** `YYYY-MM-DD`     |
+| `startTime`| string | **Required.** e.g. `09:00` (24h) |
+| `endTime`  | string | **Required.** e.g. `09:30` (24h) |
+
+**Index:** A single-field index on `doctorId` is enough (Firestore may create it automatically). The app does not use `orderBy` in the query; it sorts in memory.
+
+The app uses `lib/slots-service.ts` → `getSlotsByDoctor(doctorId)` to fetch all slots once when the create-appointment page opens. When the user selects a date, slots are filtered client-side by `date`, then by availability (excluding those overlapping existing appointments and, for today, past times). **If no slots exist in Firebase for that date,** the app falls back to default slots (9:00–17:00, 30-minute intervals) so users can still create appointments.
