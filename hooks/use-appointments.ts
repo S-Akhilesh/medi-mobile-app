@@ -157,3 +157,48 @@ export function useAppointmentsOverview(userId: string | null | undefined) {
     refetch: fetchAppointments,
   };
 }
+
+/** Fetch all appointments for the given doctor (no date filter). For Appointments screen. */
+export function useAllAppointments(userId: string | null | undefined) {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAppointments = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const doctorId = userId ?? null;
+      if (!doctorId) {
+        setAppointments([]);
+        setLoading(false);
+        return;
+      }
+      const all = await appointmentsService.getAppointmentsByDoctor(doctorId);
+      const sorted = [...all].sort((a, b) =>
+        a.date !== b.date
+          ? b.date.localeCompare(a.date)
+          : b.startTime.localeCompare(a.startTime)
+      );
+      setAppointments(sorted);
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : e != null ? String(e) : 'Failed to load appointments';
+      setError(message);
+      setAppointments([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId) {
+      fetchAppointments();
+    } else {
+      setAppointments([]);
+      setLoading(false);
+    }
+  }, [userId, fetchAppointments]);
+
+  return { appointments, loading, error, refetch: fetchAppointments };
+}

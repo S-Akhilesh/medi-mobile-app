@@ -4,9 +4,12 @@ import { ThemedText } from '@/components/themed-text';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 type ScreenHeaderProps = {
+  /** Title text, or use titleElement for a custom logo/node */
   title: string;
   subtitle?: string;
-  /** Right-side element (e.g. Sign out button) */
+  /** When set, renders instead of title + subtitle (e.g. app logo) */
+  titleElement?: React.ReactNode;
+  /** Right-side element (e.g. icon buttons) */
   rightElement?: React.ReactNode;
   /** Optional content below title row (e.g. user pill) */
   bottomContent?: React.ReactNode;
@@ -16,6 +19,7 @@ type ScreenHeaderProps = {
 export function ScreenHeader({
   title,
   subtitle,
+  titleElement,
   rightElement,
   bottomContent,
   style,
@@ -27,12 +31,18 @@ export function ScreenHeader({
     <View style={[styles.wrapper, style]}>
       <View style={styles.topRow}>
         <View style={styles.titleBlock}>
-          <ThemedText style={[styles.title, { color: titleColor }]}>{title}</ThemedText>
-          {subtitle ? (
-            <ThemedText style={[styles.subtitle, { color: subtitleColor }]} numberOfLines={1}>
-              {subtitle}
-            </ThemedText>
-          ) : null}
+          {titleElement != null ? (
+            titleElement
+          ) : (
+            <>
+              <ThemedText style={[styles.title, { color: titleColor }]}>{title}</ThemedText>
+              {subtitle ? (
+                <ThemedText style={[styles.subtitle, { color: subtitleColor }]} numberOfLines={1}>
+                  {subtitle}
+                </ThemedText>
+              ) : null}
+            </>
+          )}
         </View>
         {rightElement ? <View style={styles.right}>{rightElement}</View> : null}
       </View>

@@ -1,15 +1,8 @@
-import { router } from 'expo-router';
 import React, { Suspense, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 
+import { AuthenticatedHeader } from '@/components/authenticated-header';
 import { ErrorBoundary } from '@/components/error-boundary';
-import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -18,7 +11,7 @@ import { useAppointmentsOverview } from '@/hooks/use-appointments';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const OverviewChartsGrid = React.lazy(
-  () => import('@/components/overview/overview-charts-grid')
+  () => import('@/components/overview/overview-charts-grid'),
 );
 
 function truncateEmail(email: string, maxLength = 28) {
@@ -55,39 +48,7 @@ export default function OverviewScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <ScreenHeader
-          title="Dashboard"
-          subtitle="Appointments at a glance"
-          rightElement={
-            <Pressable
-              onPress={async () => {
-                await signOut();
-                router.replace('/(auth)/login');
-              }}
-              style={({ pressed }) => [
-                styles.signOutBtn,
-                { borderColor: colors.cardBorder },
-                pressed && styles.buttonPressed,
-              ]}
-            >
-              <ThemedText style={[styles.signOutLabel, { color: colors.tint }]}>
-                Sign out
-              </ThemedText>
-            </Pressable>
-          }
-          bottomContent={
-            user?.email ? (
-              <View style={[styles.userPill, { backgroundColor: colors.tint + '18' }]}>
-                <ThemedText
-                  style={[styles.userPillText, { color: colors.tint }]}
-                  numberOfLines={1}
-                >
-                  {truncateEmail(user.email)}
-                </ThemedText>
-              </View>
-            ) : undefined
-          }
-        />
+        <AuthenticatedHeader subtitle='Appointments at a glance' />
 
         {error ? (
           <View style={[styles.errorBanner, { backgroundColor: '#fef2f2' }]}>
@@ -97,21 +58,23 @@ export default function OverviewScreen() {
 
         {loading ? (
           <View style={styles.loading}>
-            <ActivityIndicator size="large" color={colors.tint} />
-            <ThemedText style={[styles.loadingLabel, { color: colors.textSecondary }]}>
+            <ActivityIndicator size='large' color={colors.tint} />
+            <ThemedText
+              style={[styles.loadingLabel, { color: colors.textSecondary }]}
+            >
               Loading overview…
             </ThemedText>
           </View>
         ) : !chartsReady ? (
           <View style={styles.loading}>
-            <ActivityIndicator size="small" color={colors.tint} />
+            <ActivityIndicator size='small' color={colors.tint} />
           </View>
         ) : (
           <ErrorBoundary>
             <Suspense
               fallback={
                 <View style={styles.loading}>
-                  <ActivityIndicator size="small" color={colors.tint} />
+                  <ActivityIndicator size='small' color={colors.tint} />
                 </View>
               }
             >
@@ -137,16 +100,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 56,
     paddingBottom: 32,
-  },
-  signOutBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  signOutLabel: {
-    fontSize: 16,
-    fontWeight: '600',
   },
   userPill: {
     alignSelf: 'flex-start',
