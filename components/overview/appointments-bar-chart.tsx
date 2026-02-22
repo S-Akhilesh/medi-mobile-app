@@ -9,9 +9,9 @@ import { OverviewCard } from './overview-card';
 import type { WeeklyDataItem } from '@/types/appointment';
 
 // Match legend and status colors (same as pie chart / use-appointments)
-const SCHEDULED_COLOR = '#3b82f6';   // blue
-const CONFIRMED_COLOR = '#10b981';  // green
-const COMPLETED_COLOR = '#6366f1';  // indigo
+const SCHEDULED_COLOR = '#3b82f6'; // blue
+const CONFIRMED_COLOR = '#10b981'; // green
+const COMPLETED_COLOR = '#6366f1'; // indigo
 
 const LEGEND_ITEMS = [
   { label: 'Scheduled', color: SCHEDULED_COLOR },
@@ -29,7 +29,10 @@ const CARD_PADDING = 20;
 export function AppointmentsBarChart({
   weeklyData,
 }: AppointmentsBarChartProps) {
-  const legendColor = useThemeColor({ light: '#11181C', dark: '#ECEDEE' }, 'text');
+  const legendColor = useThemeColor(
+    { light: '#11181C', dark: '#ECEDEE' },
+    'text',
+  );
   const screenWidth = Dimensions.get('window').width ?? 300;
   const chartWidth = screenWidth - PAGE_PADDING * 2 - CARD_PADDING * 2;
 
@@ -85,7 +88,9 @@ export function AppointmentsBarChart({
         <View style={styles.legend}>
           {LEGEND_ITEMS.map((item) => (
             <View key={item.label} style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+              <View
+                style={[styles.legendDot, { backgroundColor: item.color }]}
+              />
               <ThemedText style={[styles.legendText, { color: legendColor }]}>
                 {item.label}
               </ThemedText>
