@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { router } from 'expo-router';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -190,6 +192,12 @@ export default function AppointmentsScreen() {
     return appointments.filter((apt) => apt.status === statusFilter);
   }, [appointments, statusFilter]);
 
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
   const handleConfirm = async (apt: Appointment) => {
     if (!apt.id) return;
     setActionLoading(true);
@@ -331,6 +339,17 @@ export default function AppointmentsScreen() {
           </View>
         )}
       </ScrollView>
+
+      <Pressable
+        onPress={() => router.push('/(tabs)/create-appointment')}
+        style={({ pressed }) => [
+          styles.fab,
+          { backgroundColor: colors.tint },
+          pressed && styles.fabPressed,
+        ]}
+      >
+        <ThemedText style={styles.fabText}>+</ThemedText>
+      </Pressable>
     </ThemedView>
   );
 }
@@ -342,7 +361,31 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingTop: 56,
-    paddingBottom: 32,
+    paddingBottom: 100,
+  },
+  fab: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  fabPressed: {
+    opacity: 0.8,
+  },
+  fabText: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '300',
+    lineHeight: 32,
   },
   filterLabel: {
     fontSize: 12,
