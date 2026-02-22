@@ -20,13 +20,20 @@ import { useAuth } from '@/context/auth-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function LoginScreen() {
-  const { user, signInWithEmail, signInWithGoogle, loading, error, clearError } = useAuth();
+  const {
+    user,
+    signInWithEmail,
+    signInWithGoogle,
+    loading,
+    error,
+    clearError,
+  } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const passwordRef = useRef<TextInput>(null);
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('akhilesh@gmail.com');
+  const [password, setPassword] = useState('12345678');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -72,43 +79,54 @@ export default function LoginScreen() {
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps='handled'
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <ThemedText type="title">Welcome back</ThemedText>
+            <ThemedText type='title'>Welcome back</ThemedText>
             <ThemedText style={styles.subtitle}>Sign in to continue</ThemedText>
           </View>
 
           {error ? (
-            <View style={[styles.errorBanner, { backgroundColor: colors.tint + '20' }]}>
+            <View
+              style={[
+                styles.errorBanner,
+                { backgroundColor: colors.tint + '20' },
+              ]}
+            >
               <ThemedText style={styles.errorText}>{error}</ThemedText>
             </View>
           ) : null}
 
           <View style={styles.form}>
             <TextInput
-              style={[styles.input, { color: colors.text, borderColor: colors.icon + '60' }]}
-              placeholder="Email"
+              style={[
+                styles.input,
+                { color: colors.text, borderColor: colors.icon + '60' },
+              ]}
+              placeholder='Email'
               placeholderTextColor={colors.icon}
               value={email}
               onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
+              keyboardType='email-address'
+              autoCapitalize='none'
               autoCorrect={false}
-              returnKeyType="next"
+              returnKeyType='next'
               onSubmitEditing={handleEmailSubmit}
               editable={!submitting}
             />
             <TextInput
               ref={passwordRef}
-              style={[styles.input, { color: colors.text, borderColor: colors.icon + '60' }]}
-              placeholder="Password"
+              style={[
+                styles.input,
+                { color: colors.text, borderColor: colors.icon + '60' },
+              ]}
+              placeholder='Password'
               placeholderTextColor={colors.icon}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
-              returnKeyType="done"
+              returnKeyType='done'
               onSubmitEditing={handleEmailLogin}
               editable={!submitting}
             />
@@ -122,17 +140,29 @@ export default function LoginScreen() {
               disabled={submitting}
             >
               {submitting ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color='#fff' />
               ) : (
-                <ThemedText style={styles.primaryButtonText}>Sign in</ThemedText>
+                <ThemedText style={styles.primaryButtonText}>
+                  Sign in
+                </ThemedText>
               )}
             </Pressable>
           </View>
 
           <View style={styles.divider}>
-            <View style={[styles.dividerLine, { backgroundColor: colors.icon + '40' }]} />
+            <View
+              style={[
+                styles.dividerLine,
+                { backgroundColor: colors.icon + '40' },
+              ]}
+            />
             <ThemedText style={styles.dividerText}>or</ThemedText>
-            <View style={[styles.dividerLine, { backgroundColor: colors.icon + '40' }]} />
+            <View
+              style={[
+                styles.dividerLine,
+                { backgroundColor: colors.icon + '40' },
+              ]}
+            />
           </View>
 
           <Pressable
@@ -144,15 +174,17 @@ export default function LoginScreen() {
             onPress={handleGoogleLogin}
             disabled={loading}
           >
-            <Ionicons name="logo-google" size={22} color={colors.text} />
-            <ThemedText style={styles.googleButtonText}>Continue with Google</ThemedText>
+            <Ionicons name='logo-google' size={22} color={colors.text} />
+            <ThemedText style={styles.googleButtonText}>
+              Continue with Google
+            </ThemedText>
           </Pressable>
 
           <View style={styles.footer}>
             <ThemedText>Don&apos;t have an account? </ThemedText>
-            <Link href="/(auth)/signup" asChild>
+            <Link href='/(auth)/signup' asChild>
               <Pressable>
-                <ThemedText type="link">Sign up</ThemedText>
+                <ThemedText type='link'>Sign up</ThemedText>
               </Pressable>
             </Link>
           </View>
@@ -188,7 +220,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorText: {
-    fontSize: 14,
+    fontSize: 16,
   },
   form: {
     gap: 16,
@@ -198,7 +230,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
+    fontSize: 18,
   },
   primaryButton: {
     paddingVertical: 16,
@@ -208,7 +240,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
   },
   buttonPressed: {
@@ -225,7 +257,7 @@ const styles = StyleSheet.create({
     height: 1,
   },
   dividerText: {
-    fontSize: 14,
+    fontSize: 16,
     opacity: 0.7,
   },
   googleButton: {
@@ -238,7 +270,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   googleButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '500',
   },
   footer: {

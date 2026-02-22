@@ -37,7 +37,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   message: {
-    fontSize: 14,
+    fontSize: 16,
     opacity: 0.8,
   },
 });

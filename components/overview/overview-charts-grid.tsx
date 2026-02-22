@@ -1,49 +1,59 @@
 import { StyleSheet, View } from 'react-native';
 
+import { ThemedText } from '@/components/themed-text';
+import { useThemeColor } from '@/hooks/use-theme-color';
 import { AppointmentsBarChart } from './appointments-bar-chart';
 import { StatusPieChart } from './status-pie-chart';
 import { TodaysAppointments } from './todays-appointments';
 import { WeeklyTrendChart } from './weekly-trend-chart';
 
-import type { Appointment, AppointmentStatusCounts, DayCount, WeekCount } from '@/types/appointment';
+import type {
+  Appointment,
+  MonthlyDataItem,
+  StatusDataItem,
+  WeeklyDataItem,
+} from '@/types/appointment';
 
 type OverviewChartsGridProps = {
-  statusDistribution: AppointmentStatusCounts;
+  statusData: StatusDataItem[];
   todayAppointments: Appointment[];
-  last7Days: DayCount[];
-  last4Weeks: WeekCount[];
+  weeklyData: WeeklyDataItem[];
+  monthlyData: MonthlyDataItem[];
 };
 
 export default function OverviewChartsGrid({
-  statusDistribution,
+  statusData,
   todayAppointments,
-  last7Days,
-  last4Weeks,
+  weeklyData,
+  monthlyData,
 }: OverviewChartsGridProps) {
+  const sectionColor = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'icon');
+
   return (
-    <View style={styles.grid}>
-      <View style={styles.gridRow}>
-        <View style={styles.gridCell}>
-          <StatusPieChart distribution={statusDistribution} />
-        </View>
-        <View style={styles.gridCell}>
-          <TodaysAppointments appointments={todayAppointments} />
-        </View>
-      </View>
-      <View style={styles.gridRow}>
-        <View style={styles.gridCell}>
-          <AppointmentsBarChart last7Days={last7Days} />
-        </View>
-        <View style={styles.gridCell}>
-          <WeeklyTrendChart last4Weeks={last4Weeks} />
-        </View>
+    <View style={styles.wrapper}>
+      <ThemedText style={[styles.sectionLabel, { color: sectionColor }]}>
+        OVERVIEW
+      </ThemedText>
+      <View style={styles.column}>
+        <StatusPieChart statusData={statusData} />
+        <TodaysAppointments appointments={todayAppointments} />
+        <AppointmentsBarChart weeklyData={weeklyData} />
+        <WeeklyTrendChart monthlyData={monthlyData} />
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  grid: { gap: 16 },
-  gridRow: { flexDirection: 'row', gap: 16 },
-  gridCell: { flex: 1, minWidth: 0 },
+  wrapper: {
+    gap: 12,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 1.2,
+  },
+  column: {
+    gap: 20,
+  },
 });

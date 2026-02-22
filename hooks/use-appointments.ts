@@ -1,11 +1,22 @@
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { db } from '@/lib/firebase';
+import { appointmentsService } from '@/lib/appointments-service';
 
-import type { Appointment, AppointmentStatusCounts, DayCount, WeekCount } from '@/types/appointment';
+import type {
+  Appointment,
+  AppointmentStatus,
+  MonthlyDataItem,
+  StatusDataItem,
+  WeeklyDataItem,
+} from '@/types/appointment';
 
-const APPOINTMENTS_COLLECTION = 'appointments';
+const STATUS_PIE_COLORS: Record<AppointmentStatus, string> = {
+  scheduled: '#3b82f6',
+  confirmed: '#10b981',
+  completed: '#6366f1',
+  cancelled: '#ef4444',
+  'no-show': '#f59e0b',
+};
 
 function formatDate(d: Date): string {
   return d.toISOString().slice(0, 10);
@@ -18,12 +29,7 @@ function getDaysAgo(days: number): Date {
   return d;
 }
 
-function getDayLabel(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { weekday: 'short' });
-}
-
-export function useAppointmentsOverview() {
+export function useAppointmentsOverview(userId: string | null | undefined) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,91 +38,120 @@ export function useAppointmentsOverview() {
     setLoading(true);
     setError(null);
     try {
-      if (!process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID) {
+      const doctorId = userId ?? null;
+      if (!doctorId) {
         setAppointments([]);
         setLoading(false);
         return;
       }
+      const all = await appointmentsService.getAppointmentsByDoctor(doctorId);
       const fourWeeksAgo = formatDate(getDaysAgo(28));
-      const q = query(
-        collection(db, APPOINTMENTS_COLLECTION),
-        where('date', '>=', fourWeeksAgo),
-        orderBy('date', 'asc')
-      );
-      const snapshot = await getDocs(q);
-      const list: Appointment[] = snapshot.docs
-        .map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          date: data.date ?? '',
-          startTime: data.startTime ?? '',
-          endTime: data.endTime ?? '',
-          name: data.name ?? '',
-          status: (data.status === 'scheduled' ? 'scheduled' : 'confirmed') as Appointment['status'],
-        };
-      })
-        .sort((a, b) => (a.date !== b.date ? a.date.localeCompare(b.date) : a.startTime.localeCompare(b.startTime)));
+      const list = all
+        .filter((a) => a.date >= fourWeeksAgo)
+        .sort((a, b) =>
+          a.date !== b.date ? a.date.localeCompare(b.date) : a.startTime.localeCompare(b.startTime)
+        );
       setAppointments(list);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load appointments');
+      const message =
+        e instanceof Error ? e.message : e != null ? String(e) : 'Failed to load appointments';
+      setError(message);
       setAppointments([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
-    fetchAppointments();
-  }, [fetchAppointments]);
+    if (userId) {
+      fetchAppointments();
+    } else {
+      setAppointments([]);
+      setLoading(false);
+    }
+  }, [userId, fetchAppointments]);
 
   const today = formatDate(new Date());
-
   const todayAppointments = appointments.filter((a) => a.date === today);
 
-  const statusDistribution: AppointmentStatusCounts = appointments.reduce(
+  // statusData for PieChart: [ { name, value, color } ] for each status
+  const statusCounts = appointments.reduce<Record<AppointmentStatus, number>>(
     (acc, a) => {
       acc[a.status] = (acc[a.status] ?? 0) + 1;
       return acc;
     },
-    { confirmed: 0, scheduled: 0 } as AppointmentStatusCounts
+    {
+      scheduled: 0,
+      confirmed: 0,
+      completed: 0,
+      cancelled: 0,
+      'no-show': 0,
+    }
   );
+  const statusData: StatusDataItem[] = (
+    (['scheduled', 'confirmed', 'completed', 'cancelled', 'no-show'] as const)
+  ).map((status) => ({
+    name: status === 'no-show' ? 'No-show' : status.charAt(0).toUpperCase() + status.slice(1),
+    value: statusCounts[status],
+    color: STATUS_PIE_COLORS[status],
+  }));
 
-  const last7Days: DayCount[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = getDaysAgo(i);
-    const dateStr = formatDate(d);
-    const dayAppointments = appointments.filter((a) => a.date === dateStr);
-    last7Days.push({
-      day: getDayLabel(dateStr),
-      confirmed: dayAppointments.filter((a) => a.status === 'confirmed').length,
-      scheduled: dayAppointments.filter((a) => a.status === 'scheduled').length,
-    });
-  }
+  // Weekly trend: last 7 days (for bar chart)
+  const weeklyData = useMemo(() => {
+    const days: WeeklyDataItem[] = [];
+    const today = new Date();
 
-  const last4Weeks: WeekCount[] = [];
-  const now = new Date();
-  for (let w = 3; w >= 0; w--) {
-    const weekStart = new Date(now);
-    weekStart.setDate(weekStart.getDate() - 7 * w);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    const weekAppointments = appointments.filter((a) => {
-      const d = a.date;
-      return d >= formatDate(weekStart) && d <= formatDate(weekEnd);
-    });
-    last4Weeks.push({
-      weekLabel: `Week ${4 - w}`,
-      total: weekAppointments.length,
-    });
-  }
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+
+      const dayAppointments = appointments.filter((apt) => apt.date === dateStr);
+
+      days.push({
+        date: dayName,
+        fullDate: dateStr,
+        appointments: dayAppointments.length,
+        confirmed: dayAppointments.filter((a) => a.status === 'confirmed').length,
+        completed: dayAppointments.filter((a) => a.status === 'completed').length,
+      });
+    }
+
+    return days;
+  }, [appointments]);
+
+  // Monthly trend: last 4 weeks (for line chart)
+  const monthlyData = useMemo(() => {
+    const weeks: MonthlyDataItem[] = [];
+    const today = new Date();
+
+    for (let i = 3; i >= 0; i--) {
+      const weekStart = new Date(today);
+      weekStart.setDate(weekStart.getDate() - (i * 7 + 6));
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+
+      const weekAppointments = appointments.filter((apt) => {
+        const aptDate = new Date(apt.date + 'T00:00:00');
+        return aptDate >= weekStart && aptDate <= weekEnd;
+      });
+
+      weeks.push({
+        week: `Week ${4 - i}`,
+        appointments: weekAppointments.length,
+      });
+    }
+
+    return weeks;
+  }, [appointments]);
 
   return {
     appointments,
     todayAppointments,
-    statusDistribution,
-    last7Days,
-    last4Weeks,
+    statusData,
+    weeklyData,
+    monthlyData,
     loading,
     error,
     refetch: fetchAppointments,

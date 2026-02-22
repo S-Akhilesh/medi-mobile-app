@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   errorText: {
-    fontSize: 14,
+    fontSize: 16,
   },
   form: {
     gap: 16,
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
+    fontSize: 18,
   },
   primaryButton: {
     paddingVertical: 16,
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
   },
   buttonPressed: {
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     height: 1,
   },
   dividerText: {
-    fontSize: 14,
+    fontSize: 16,
     opacity: 0.7,
   },
   googleButton: {
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   googleButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '500',
   },
   footer: {
