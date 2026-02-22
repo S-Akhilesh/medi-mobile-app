@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -14,6 +16,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/context/auth-context';
 import { useAllAppointments } from '@/hooks/use-appointments';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { appointmentsService } from '@/lib/appointments-service';
 
 import type { Appointment, AppointmentStatus } from '@/types/appointment';
 
@@ -47,19 +50,32 @@ function formatStatusLabel(status: AppointmentStatus): string {
 function AppointmentCard({
   apt,
   colors,
+  onConfirm,
+  onComplete,
+  onCancel,
+  actionLoading,
 }: {
   apt: Appointment;
   colors: (typeof Colors)['light'];
+  onConfirm: (apt: Appointment) => void;
+  onComplete: (apt: Appointment) => void;
+  onCancel: (apt: Appointment) => void;
+  actionLoading: boolean;
 }) {
   const statusStyle = {
     backgroundColor: STATUS_PILL_COLORS[apt.status].bg + '20',
   };
   const statusTextColor = STATUS_PILL_COLORS[apt.status].text;
+  const canConfirm = apt.status === 'scheduled';
+  const canCompleteOrCancel =
+    apt.status === 'scheduled' || apt.status === 'confirmed';
 
   return (
     <View style={[styles.card, { borderColor: colors.cardBorder }]}>
       <View style={styles.cardHeader}>
-        <ThemedText style={styles.dateLabel}>{formatDateFull(apt.date)}</ThemedText>
+        <ThemedText style={styles.dateLabel}>
+          {formatDateFull(apt.date)}
+        </ThemedText>
         <View style={[styles.statusPill, statusStyle]}>
           <ThemedText style={[styles.statusText, { color: statusTextColor }]}>
             {formatStatusLabel(apt.status)}
@@ -92,11 +108,59 @@ function AppointmentCard({
         <ThemedText style={styles.value}>{apt.doctorName}</ThemedText>
       </View>
       {apt.notes?.trim() ? (
-        <View style={[styles.notesWrap, { backgroundColor: colors.cardBackground }]}>
+        <View
+          style={[styles.notesWrap, { backgroundColor: colors.cardBackground }]}
+        >
           <ThemedText style={styles.label}>Notes</ThemedText>
           <ThemedText style={styles.notesText}>{apt.notes.trim()}</ThemedText>
         </View>
       ) : null}
+
+      <View style={styles.actions}>
+        {canConfirm && (
+          <Pressable
+            onPress={() => onConfirm(apt)}
+            disabled={actionLoading}
+            style={({ pressed }) => [
+              styles.actionBtn,
+              styles.actionBtnPrimary,
+              { backgroundColor: colors.tint },
+              pressed && styles.actionBtnPressed,
+            ]}
+          >
+            <ThemedText style={styles.actionBtnTextPrimary}>Confirm</ThemedText>
+          </Pressable>
+        )}
+        {canCompleteOrCancel && (
+          <Pressable
+            onPress={() => onComplete(apt)}
+            disabled={actionLoading}
+            style={({ pressed }) => [
+              styles.actionBtn,
+              styles.actionBtnPrimary,
+              { backgroundColor: colors.tint },
+              pressed && styles.actionBtnPressed,
+            ]}
+          >
+            <ThemedText style={styles.actionBtnTextPrimary}>Complete</ThemedText>
+          </Pressable>
+        )}
+        {canCompleteOrCancel && (
+          <Pressable
+            onPress={() => onCancel(apt)}
+            disabled={actionLoading}
+            style={({ pressed }) => [
+              styles.actionBtn,
+              { borderColor: colors.cardBorder },
+              pressed && styles.actionBtnPressed,
+            ]}
+          >
+            <ThemedText style={[styles.actionBtnText, { color: colors.text }]}>
+              Cancel
+            </ThemedText>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -105,7 +169,49 @@ export default function AppointmentsScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const { user } = useAuth();
-  const { appointments, loading, error, refetch } = useAllAppointments(user?.uid);
+  const { appointments, loading, error, refetch } = useAllAppointments(
+    user?.uid,
+  );
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const handleConfirm = async (apt: Appointment) => {
+    if (!apt.id) return;
+    setActionLoading(true);
+    try {
+      await appointmentsService.updateAppointment(apt.id, { status: 'confirmed' });
+      await refetch();
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to update');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleComplete = async (apt: Appointment) => {
+    if (!apt.id) return;
+    setActionLoading(true);
+    try {
+      await appointmentsService.updateAppointment(apt.id, { status: 'completed' });
+      await refetch();
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to update');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancel = async (apt: Appointment) => {
+    if (!apt.id) return;
+    setActionLoading(true);
+    try {
+      await appointmentsService.updateAppointment(apt.id, { status: 'cancelled' });
+      await refetch();
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'Failed to update');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   return (
     <ThemedView style={styles.container}>
@@ -113,10 +219,14 @@ export default function AppointmentsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.tint} />
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={refetch}
+            tintColor={colors.tint}
+          />
         }
       >
-        <AuthenticatedHeader subtitle="View and manage your appointments" />
+        <AuthenticatedHeader subtitle='Manage your appointments' />
 
         {error ? (
           <View style={[styles.errorBanner, { backgroundColor: '#fef2f2' }]}>
@@ -126,14 +236,18 @@ export default function AppointmentsScreen() {
 
         {loading && appointments.length === 0 ? (
           <View style={styles.loading}>
-            <ActivityIndicator size="large" color={colors.tint} />
-            <ThemedText style={[styles.loadingLabel, { color: colors.textSecondary }]}>
+            <ActivityIndicator size='large' color={colors.tint} />
+            <ThemedText
+              style={[styles.loadingLabel, { color: colors.textSecondary }]}
+            >
               Loading appointments…
             </ThemedText>
           </View>
         ) : appointments.length === 0 ? (
           <View style={styles.empty}>
-            <ThemedText style={[styles.emptyText, { color: colors.textSecondary }]}>
+            <ThemedText
+              style={[styles.emptyText, { color: colors.textSecondary }]}
+            >
               No appointments found
             </ThemedText>
           </View>
@@ -144,6 +258,10 @@ export default function AppointmentsScreen() {
                 key={apt.id ?? apt.slotId ?? index.toString()}
                 apt={apt}
                 colors={colors}
+                onConfirm={handleConfirm}
+                onComplete={handleComplete}
+                onCancel={handleCancel}
+                actionLoading={actionLoading}
               />
             ))}
           </View>
@@ -242,5 +360,35 @@ const styles = StyleSheet.create({
   notesText: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.08)',
+  },
+  actionBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  actionBtnPrimary: {
+    borderWidth: 0,
+  },
+  actionBtnPressed: {
+    opacity: 0.8,
+  },
+  actionBtnText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  actionBtnTextPrimary: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
