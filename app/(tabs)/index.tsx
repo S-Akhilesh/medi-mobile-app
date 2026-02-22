@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 
 import { ErrorBoundary } from '@/components/error-boundary';
+import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -54,16 +55,10 @@ export default function OverviewScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <View>
-              <ThemedText type="title" style={styles.title}>
-                Dashboard
-              </ThemedText>
-              <ThemedText style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
-                Appointments at a glance
-              </ThemedText>
-            </View>
+        <ScreenHeader
+          title="Dashboard"
+          subtitle="Appointments at a glance"
+          rightElement={
             <Pressable
               onPress={async () => {
                 await signOut();
@@ -79,18 +74,20 @@ export default function OverviewScreen() {
                 Sign out
               </ThemedText>
             </Pressable>
-          </View>
-          {user?.email ? (
-            <View style={[styles.userPill, { backgroundColor: colors.tint + '18' }]}>
-              <ThemedText
-                style={[styles.userPillText, { color: colors.tint }]}
-                numberOfLines={1}
-              >
-                {truncateEmail(user.email)}
-              </ThemedText>
-            </View>
-          ) : null}
-        </View>
+          }
+          bottomContent={
+            user?.email ? (
+              <View style={[styles.userPill, { backgroundColor: colors.tint + '18' }]}>
+                <ThemedText
+                  style={[styles.userPillText, { color: colors.tint }]}
+                  numberOfLines={1}
+                >
+                  {truncateEmail(user.email)}
+                </ThemedText>
+              </View>
+            ) : undefined
+          }
+        />
 
         {error ? (
           <View style={[styles.errorBanner, { backgroundColor: '#fef2f2' }]}>
@@ -140,25 +137,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 56,
     paddingBottom: 32,
-  },
-  header: {
-    marginBottom: 28,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 16,
-  },
-  title: {
-    fontSize: 30,
-    fontWeight: '700',
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 17,
-    marginTop: 4,
-    fontWeight: '500',
   },
   signOutBtn: {
     paddingVertical: 8,

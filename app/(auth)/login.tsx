@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 
+import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -82,10 +83,7 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps='handled'
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <ThemedText type='title'>Welcome back</ThemedText>
-            <ThemedText style={styles.subtitle}>Sign in to continue</ThemedText>
-          </View>
+          <ScreenHeader title="Welcome back" subtitle="Sign in to continue" />
 
           {error ? (
             <View
@@ -204,15 +202,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 80,
+    paddingTop: 56,
     paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 32,
-  },
-  subtitle: {
-    marginTop: 8,
-    opacity: 0.8,
   },
   errorBanner: {
     padding: 12,

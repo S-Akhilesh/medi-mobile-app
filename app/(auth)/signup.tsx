@@ -13,6 +13,7 @@ import {
   View,
 } from 'react-native';
 
+import { ScreenHeader } from '@/components/screen-header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/theme';
@@ -79,10 +80,7 @@ export default function SignupScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <ThemedText type="title">Create account</ThemedText>
-            <ThemedText style={styles.subtitle}>Sign up to get started</ThemedText>
-          </View>
+          <ScreenHeader title="Create account" subtitle="Sign up to get started" />
 
           {error ? (
             <View style={[styles.errorBanner, { backgroundColor: colors.tint + '20' }]}>
@@ -176,15 +174,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 80,
+    paddingTop: 56,
     paddingBottom: 40,
-  },
-  header: {
-    marginBottom: 32,
-  },
-  subtitle: {
-    marginTop: 8,
-    opacity: 0.8,
   },
   errorBanner: {
     padding: 12,
