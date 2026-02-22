@@ -203,12 +203,21 @@ export function useAllAppointments(userId: string | null | undefined) {
   return { appointments, loading, error, refetch: fetchAppointments };
 }
 
+/** One appointment summary for display under a patient. */
+export interface PatientAppointmentSummary {
+  date: string;
+  startTime: string;
+  endTime: string;
+  status: AppointmentStatus;
+}
+
 /** Patient derived from appointments (unique by phone; name/email from latest). */
 export interface Patient {
   patientName: string;
   patientPhone: string;
   patientEmail?: string;
   appointmentCount: number;
+  appointments: PatientAppointmentSummary[];
 }
 
 /** Fetch unique patients for the given doctor from their appointments. */
@@ -220,9 +229,16 @@ export function usePatients(userId: string | null | undefined) {
     for (const apt of appointments) {
       const key = apt.patientPhone?.trim() || apt.patientName?.trim() || apt.id || apt.slotId || '';
       if (!key) continue;
+      const summary: PatientAppointmentSummary = {
+        date: apt.date,
+        startTime: apt.startTime,
+        endTime: apt.endTime,
+        status: apt.status,
+      };
       const existing = byKey.get(key);
       if (existing) {
         existing.appointmentCount += 1;
+        existing.appointments.push(summary);
         if (apt.patientEmail?.trim()) existing.patientEmail = apt.patientEmail.trim();
       } else {
         byKey.set(key, {
@@ -230,10 +246,19 @@ export function usePatients(userId: string | null | undefined) {
           patientPhone: apt.patientPhone?.trim() ?? '',
           patientEmail: apt.patientEmail?.trim() || undefined,
           appointmentCount: 1,
+          appointments: [summary],
         });
       }
     }
-    return [...byKey.values()].sort((a, b) =>
+    const list = [...byKey.values()];
+    for (const p of list) {
+      p.appointments.sort((a, b) =>
+        a.date !== b.date
+          ? b.date.localeCompare(a.date)
+          : b.startTime.localeCompare(a.startTime)
+      );
+    }
+    return list.sort((a, b) =>
       a.patientName.localeCompare(b.patientName, undefined, { sensitivity: 'base' })
     );
   }, [appointments]);

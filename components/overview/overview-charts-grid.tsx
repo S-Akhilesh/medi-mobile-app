@@ -27,7 +27,10 @@ export default function OverviewChartsGrid({
   weeklyData,
   monthlyData,
 }: OverviewChartsGridProps) {
-  const sectionColor = useThemeColor({ light: '#64748b', dark: '#94a3b8' }, 'icon');
+  const sectionColor = useThemeColor(
+    { light: '#64748b', dark: '#94a3b8' },
+    'icon',
+  );
 
   return (
     <View style={styles.wrapper}>
